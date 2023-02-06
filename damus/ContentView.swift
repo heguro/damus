@@ -288,7 +288,7 @@ struct ContentView: View {
         .onAppear() {
             self.connect()
             //KingfisherManager.shared.cache.clearDiskCache()
-            setup_notifications()
+            //setup_notifications()
         }
         .sheet(item: $active_sheet) { item in
             switch item {
