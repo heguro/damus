@@ -192,7 +192,7 @@ struct ContentView: View {
                     Text("Notifications", comment: "Toolbar label for Notifications view.")
                         .bold()
                 case .search:
-                    Text("Global", comment: "Toolbar label for Global view where posts from all connected relay servers appear.")
+                    Text("Search")
                         .bold()
                 case .none:
                     Text("", comment: "Toolbar label for unknown views. This label would be displayed only if a new timeline view is added but a toolbar label was not explicitly assigned to it yet.")
