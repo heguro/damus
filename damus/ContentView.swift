@@ -88,6 +88,7 @@ struct ContentView: View {
     @State var confirm_overwrite_mutelist: Bool = false
     @State var filter_state : FilterState = .posts_and_replies
     @State private var isSideBarOpened = false
+    @State var deletingEvent: NostrEvent?
     @StateObject var home: HomeModel = HomeModel()
 
     // connect retry timer
@@ -96,6 +97,13 @@ struct ContentView: View {
     let sub_id = UUID().description
     
     @Environment(\.colorScheme) var colorScheme
+    
+    var isDeleteConfirmationPresent: Binding<Bool> {
+        return Binding<Bool>(
+            get: { self.deletingEvent != nil },
+            set: { _ in self.deletingEvent = nil }
+        )
+    }
 
     var PostingTimelineView: some View {
         VStack {
@@ -424,11 +432,33 @@ struct ContentView: View {
                 print("post cancelled")
             }
         }
+        .onReceive(handle_notify(.delete)) { notif in
+            guard let privkey = self.privkey else { return }
+            guard let event = notif.object as? NostrEvent else { return }
+
+            print("delete \(event)")
+            
+            let referenceId = ReferencedId(ref_id: event.id, relay_id: nil, key: "e")
+            let deletePost = NostrPost(content: "deleted", references: [referenceId], kind: .delete)
+            let newEvent = post_to_event(post: deletePost, privkey: privkey, pubkey: pubkey)
+            
+            self.damus_state?.pool.send(.event(newEvent))
+        }
         .onReceive(timer) { n in
             self.damus_state?.pool.connect_to_disconnected()
         }
         .onReceive(handle_notify(.new_mutes)) { notif in
             home.filter_muted()
+        }
+        .onReceive(handle_notify(.deleting)) { notif in
+            guard let event = notif.object as? NostrEvent else { return }
+            deletingEvent = event
+        }
+        .alert("Are you sure you want to delete this?", isPresented: isDeleteConfirmationPresent) {
+            Button("Delete", role: .destructive) {
+                guard let event = deletingEvent else { return }
+                NotificationCenter.default.post(name: .delete, object: event)
+            }
         }
         .alert(NSLocalizedString("Deleted Account", comment: "Alert message to indicate this is a deleted account"), isPresented: $is_deleted_account) {
             Button(NSLocalizedString("Logout", comment: "Button to close the alert that informs that the current account has been deleted.")) {

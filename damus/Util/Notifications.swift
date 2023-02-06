@@ -50,8 +50,11 @@ extension Notification.Name {
     static var like: Notification.Name {
         return Notification.Name("like note")
     }
+    static var deleting: Notification.Name {
+        return Notification.Name("deleting event")
+    }
     static var delete: Notification.Name {
-        return Notification.Name("delete note")
+        return Notification.Name("delete event")
     }
     static var post: Notification.Name {
         return Notification.Name("send post")

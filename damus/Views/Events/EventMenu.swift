@@ -43,6 +43,14 @@ struct EventMenuContext: View {
         } label: {
             Label(NSLocalizedString("Broadcast", comment: "Context menu option for broadcasting the user's note to all of the user's connected relay servers."), systemImage: "globe")
         }
+        
+        if keypair.pubkey == target_pubkey {
+            Button(role: .destructive) {
+                notify(.deleting, event)
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
 
         // Only allow reporting if logged in with private key and the currently viewed profile is not the logged in profile.
         if keypair.pubkey != target_pubkey && keypair.privkey != nil {
