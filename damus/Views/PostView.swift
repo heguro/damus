@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import PhotosUI
 
 enum NostrPostResult {
     case post(NostrPost)
@@ -18,6 +19,16 @@ struct PostView: View {
     @State var post: String = ""
     @FocusState var focus: Bool
     @State var showPrivateKeyWarning: Bool = false
+
+    @State var selectedItem: PhotosPickerItem? = nil
+    @State var isUploading = false
+    @State var uploadError: Error? = nil
+    var isUploadingAlertPresented: Binding<Bool> {
+        return Binding<Bool>(
+            get: { self.uploadError != nil },
+            set: { _ in self.uploadError = nil }
+        )
+    }
     
     let replying_to: NostrEvent?
     let references: [ReferencedId]
@@ -64,15 +75,21 @@ struct PostView: View {
 
                 Spacer()
 
-                if !is_post_empty {
-                    Button(NSLocalizedString("Post", comment: "Button to post a note.")) {
-                        showPrivateKeyWarning = contentContainsPrivateKey(self.post)
+                PhotosPicker(selection: $selectedItem, photoLibrary: .shared()) {
+                    Image(systemName: "photo")
+                }
+                .disabled(isUploading)
 
-                        if !showPrivateKeyWarning {
-                            self.send_post()
-                        }
+                Spacer()
+                
+                Button(NSLocalizedString("Post", comment: "Button to post a note.")) {
+                    showPrivateKeyWarning = contentContainsPrivateKey(self.post)
+
+                    if !showPrivateKeyWarning {
+                        self.send_post()
                     }
                 }
+                .disabled(is_post_empty)
             }
             .padding([.top, .bottom], 4)
 
@@ -112,6 +129,32 @@ struct PostView: View {
                 self.send_post()
             }
         })
+        .task(id: selectedItem) {
+            guard let newItem = selectedItem else { return }
+            guard let type = newItem.supportedContentTypes.first else { return }
+            guard let mimeType = type.preferredMIMEType else { return }
+            guard let fileExtension = type.preferredFilenameExtension else { return }
+            
+            let uploadingText = "[uploading...]"
+            
+            do {
+                guard let imageData = try await newItem.loadTransferable(type: Data.self) else {
+                    print("No supported content type found.")
+                    return
+                }
+                
+                post += "\n\(uploadingText)"
+                let url = try await MediaUploader.shared.upload(mimeType: mimeType, fileExtension: fileExtension, data: imageData)
+                post = post.replacingOccurrences(of: uploadingText, with: url.absoluteString)
+            } catch {
+                uploadError = error
+                post = post.replacingOccurrences(of: "\n\(uploadingText)", with: "")
+            }
+        }
+        .onReceive(MediaUploader.shared.$isUploading) { isUploading in
+            self.isUploading = isUploading
+        }
+        .alert(uploadError?.localizedDescription ?? "Error", isPresented: isUploadingAlertPresented) {}
     }
 }
 
