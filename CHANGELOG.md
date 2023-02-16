@@ -1,7 +1,26 @@
+
+## [1.1.0-2] - 2023-02-14
+
+### Added
+
+- Save drafts to posts, replies and DMs (Terry Yiu)
+
+### Fixed
+
+- Ensure stats get updated in realtime on action bars (William Casarin)
+- Fix reposts not getting counted properly (William Casarin)
+- Fix a bug where zaps on other people's posts weren't showing (William Casarin)
+- Fix punctuation getting included in some urls (Gert Goet)
+- Improve language detection (Terry Yiu)
+- Fix some animated image crashes (William Casarin)
+
+
+[1.1.0-2]: https://github.com/damus-io/damus/releases/tag/v1.1.0-2
 ## [1.0.0-15] - 2023-02-10
 
 ### Added
 
+- Relay Filtering (William Casarin)
 - Japanese translations (Terry Yiu)
 - Add password autofill on account login and creation (Terry Yiu)
 - Show if relay is paid (William Casarin)
@@ -13,7 +32,6 @@
 - Use local authentication (faceid) to access private key (Andrii Sievrikov)
 - Add accessibility labels to action bar (Bryan Montz)
 - Copy invoice button (Joel Klabo)
-- Ability to change remote image loading policy (radixrat)
 - Receive Lightning Zaps (William Casarin)
 - Allow text selection in bio (Suhail Saqan)
 
@@ -23,9 +41,7 @@
 - Show "Follow Back" button on profile page (William Casarin)
 - When on your profile page, open relay view instead for your own relays (Terry Yiu)
 - Updated QR code view, include profile image, etc (ericholguin)
-- Make app smaller by optimizing pngs (pea-sys)
 - Clicking relay numbers now goes to relay config (radixrat)
-
 
 ### Fixed
 
@@ -560,4 +576,5 @@
 
 
 [0.1.2]: https://github.com/damus-io/damus/releases/tag/v0.1.2
+
 

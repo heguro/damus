@@ -38,6 +38,9 @@ class HomeModel: ObservableObject {
     var channels: [String: NostrEvent] = [:]
     var last_event_of_kind: [String: [Int: NostrEvent]] = [:]
     var done_init: Bool = false
+    var incoming_dms: [NostrEvent] = []
+    let dm_debouncer = Debouncer(interval: 0.5)
+    var should_debounce_dms = true
 
     let home_subid = UUID().description
     let contacts_subid = UUID().description
@@ -56,15 +59,24 @@ class HomeModel: ObservableObject {
     init() {
         self.damus_state = DamusState.empty
         self.dms = DirectMessagesModel(our_pubkey: damus_state.pubkey)
+        self.setup_debouncer()
     }
 
     init(damus_state: DamusState) {
         self.damus_state = damus_state
         self.dms = DirectMessagesModel(our_pubkey: damus_state.pubkey)
+        self.setup_debouncer()
     }
 
     var pool: RelayPool {
         return damus_state.pool
+    }
+    
+    func setup_debouncer() {
+        // turn off debouncer after initial load
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            self.should_debounce_dms = false
+        }
     }
 
     func has_sub_id_event(sub_id: String, ev_id: String) -> Bool {
@@ -142,12 +154,12 @@ class HomeModel: ObservableObject {
             return
         }
         
-        if let local_zapper = damus_state.profiles.lookup_zapper(pubkey: damus_state.pubkey) {
+        if let local_zapper = damus_state.profiles.lookup_zapper(pubkey: ptag) {
             handle_zap_event_with_zapper(ev, our_pubkey: damus_state.pubkey, zapper: local_zapper)
             return
         }
         
-        guard let profile = damus_state.profiles.lookup(id: damus_state.pubkey) else {
+        guard let profile = damus_state.profiles.lookup(id: ptag) else {
             return
         }
         
@@ -230,6 +242,7 @@ class HomeModel: ObservableObject {
         case .success(let n):
             let boosted = Counted(event: ev, id: e, total: n)
             notify(.boosted, boosted)
+            notify(.update_stats, e)
         }
     }
 
@@ -247,6 +260,7 @@ class HomeModel: ObservableObject {
         case .success(let n):
             let liked = Counted(event: ev, id: e.ref_id, total: n)
             notify(.liked, liked)
+            notify(.update_stats, e.ref_id)
         }
     }
 
@@ -287,7 +301,7 @@ class HomeModel: ObservableObject {
             switch ev {
             case .event(let sub_id, let ev):
                 // globally handle likes
-                let always_process = sub_id == notifications_subid || sub_id == contacts_subid || sub_id == home_subid || sub_id == dms_subid || sub_id == init_subid || ev.known_kind == .like || ev.known_kind == .zap || ev.known_kind == .contacts || ev.known_kind == .metadata
+                let always_process = sub_id == notifications_subid || sub_id == contacts_subid || sub_id == home_subid || sub_id == dms_subid || sub_id == init_subid || ev.known_kind == .like || ev.known_kind == .boost || ev.known_kind == .zap || ev.known_kind == .contacts || ev.known_kind == .metadata
                 if !always_process {
                     // TODO: other views like threads might have their own sub ids, so ignore those events... or should we?
                     return
@@ -301,7 +315,8 @@ class HomeModel: ObservableObject {
             case .eose(let sub_id):
                 
                 if sub_id == dms_subid {
-                    let dms = dms.dms.flatMap { $0.1.events }
+                    var dms = dms.dms.flatMap { $0.1.events }
+                    dms.append(contentsOf: incoming_dms)
                     load_profiles(profiles_subid: profiles_subid, relay_id: relay_id, events: dms, damus_state: damus_state)
                 } else if sub_id == notifications_subid {
                     load_profiles(profiles_subid: profiles_subid, relay_id: relay_id, events: notifications, damus_state: damus_state)
@@ -475,10 +490,28 @@ class HomeModel: ObservableObject {
             handle_notification(ev: ev)
         }
     }
-
+    
     func handle_dm(_ ev: NostrEvent) {
-        if let notifs = handle_incoming_dm(contacts: damus_state.contacts, prev_events: self.new_events, dms: self.dms, our_pubkey: self.damus_state.pubkey, ev: ev) {
-            self.new_events = notifs
+        guard should_show_event(contacts: damus_state.contacts, ev: ev) else {
+            return
+        }
+        
+        if !should_debounce_dms {
+            self.incoming_dms.append(ev)
+            if let notifs = handle_incoming_dms(contacts: self.damus_state.contacts, prev_events: self.new_events, dms: self.dms, our_pubkey: self.damus_state.pubkey, evs: self.incoming_dms) {
+                self.new_events = notifs
+            }
+            self.incoming_dms = []
+            return
+        }
+        
+        incoming_dms.append(ev)
+        
+        dm_debouncer.debounce {
+            if let notifs = handle_incoming_dms(contacts: self.damus_state.contacts, prev_events: self.new_events, dms: self.dms, our_pubkey: self.damus_state.pubkey, evs: self.incoming_dms) {
+                self.new_events = notifs
+            }
+            self.incoming_dms = []
         }
     }
 }
@@ -759,14 +792,10 @@ func fetch_relay_metadata(relay_id: String) async throws -> RelayMetadata? {
 func process_relay_metadata() {
 }
 
-func handle_incoming_dm(contacts: Contacts, prev_events: NewEventsBits, dms: DirectMessagesModel, our_pubkey: String, ev: NostrEvent) -> NewEventsBits? {
-    // hide blocked users
-    guard should_show_event(contacts: contacts, ev: ev) else {
-        return prev_events
-    }
-    
+func handle_incoming_dm(ev: NostrEvent, our_pubkey: String, dms: DirectMessagesModel, prev_events: NewEventsBits) -> (Bool, NewEventsBits?) {
     var inserted = false
     var found = false
+    
     let ours = ev.pubkey == our_pubkey
     var i = 0
 
@@ -793,15 +822,32 @@ func handle_incoming_dm(contacts: Contacts, prev_events: NewEventsBits, dms: Dir
     }
 
     if !found {
-        inserted = true
         let model = DirectMessageModel(events: [ev], our_pubkey: our_pubkey)
         dms.dms.append((the_pk, model))
     }
+    
+    var new_bits: NewEventsBits? = nil
+    if inserted {
+        new_bits = handle_last_events(new_events: prev_events, ev: ev, timeline: .dms, shouldNotify: !ours)
+    }
+    
+    return (inserted, new_bits)
+}
+
+func handle_incoming_dms(contacts: Contacts, prev_events: NewEventsBits, dms: DirectMessagesModel, our_pubkey: String, evs: [NostrEvent]) -> NewEventsBits? {
+    var inserted = false
 
     var new_events: NewEventsBits? = nil
+    
+    for ev in evs {
+        let res = handle_incoming_dm(ev: ev, our_pubkey: our_pubkey, dms: dms, prev_events: prev_events)
+        inserted = res.0 || inserted
+        if let new = res.1 {
+            new_events = new
+        }
+    }
+    
     if inserted {
-        new_events = handle_last_events(new_events: prev_events, ev: ev, timeline: .dms, shouldNotify: !ours)
-
         dms.dms = dms.dms.filter({ $0.1.events.count > 0 }).sorted { a, b in
             return a.1.events.last!.created_at > b.1.events.last!.created_at
         }
