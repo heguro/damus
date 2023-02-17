@@ -51,7 +51,7 @@ struct EventActionBar: View {
                 .accessibilityLabel(NSLocalizedString("Reply", comment: "Accessibility label for reply button"))
             }
             Spacer()
-            ZStack {
+            HStack(spacing: 4) {
                 
                 EventActionButton(img: "arrow.2.squarepath", col: bar.boosted ? Color.green : nil) {
                     if bar.boosted {
@@ -61,14 +61,13 @@ struct EventActionBar: View {
                     }
                 }
                 .accessibilityLabel(NSLocalizedString("Boosts", comment: "Accessibility label for boosts button"))
-                Text(String("\(bar.boosts > 0 ? "\(bar.boosts)" : "")"))
-                    .offset(x: 18)
+                Text(verbatim: "\(bar.boosts > 0 ? "\(bar.boosts)" : "")")
                     .font(.footnote.weight(.medium))
                     .foregroundColor(bar.boosted ? Color.green : Color.gray)
             }
             Spacer()
             
-            ZStack {
+            HStack(spacing: 4) {
                 LikeButton(liked: bar.liked) {
                     if bar.liked {
                         notify(.delete, bar.our_like)
@@ -76,8 +75,7 @@ struct EventActionBar: View {
                         send_like()
                     }
                 }
-                Text(String("\(bar.likes > 0 ? "\(bar.likes)" : "")"))
-                    .offset(x: 22)
+                Text(verbatim: "\(bar.likes > 0 ? "\(bar.likes)" : "")")
                     .font(.footnote.weight(.medium))
                     .foregroundColor(bar.liked ? Color.accentColor : Color.gray)
                 
@@ -158,9 +156,9 @@ struct EventActionBar: View {
 
 func EventActionButton(img: String, col: Color?, action: @escaping () -> ()) -> some View {
     Button(action: action) {
-        Label(String("\u{00A0}"), systemImage: img)
-            .font(.footnote.weight(.medium))
+        Image(systemName: img)
             .foregroundColor(col == nil ? Color.gray : col!)
+            .font(.footnote.weight(.medium))
     }
 }
 
@@ -190,6 +188,8 @@ struct EventActionBar_Previews: PreviewProvider {
         let likedbar = ActionBarModel(likes: 10, boosts: 0, zaps: 0, zap_total: 0, our_like: nil, our_boost: nil, our_zap: nil)
         let likedbar_ours = ActionBarModel(likes: 10, boosts: 0, zaps: 0, zap_total: 0, our_like: NostrEvent(id: "", content: "", pubkey: ""), our_boost: nil, our_zap: nil)
         let maxed_bar = ActionBarModel(likes: 999, boosts: 999, zaps: 999, zap_total: 99999999,  our_like: NostrEvent(id: "", content: "", pubkey: ""), our_boost: NostrEvent(id: "", content: "", pubkey: ""), our_zap: nil)
+        let extra_max_bar = ActionBarModel(likes: 9999, boosts: 9999, zaps: 9999, zap_total: 99999999,  our_like: NostrEvent(id: "", content: "", pubkey: ""), our_boost: NostrEvent(id: "", content: "", pubkey: ""), our_zap: nil)
+        let mega_max_bar = ActionBarModel(likes: 9999999, boosts: 99999, zaps: 9999, zap_total: 99999999,  our_like: NostrEvent(id: "", content: "", pubkey: ""), our_boost: NostrEvent(id: "", content: "", pubkey: ""), our_zap: nil)
         let zapbar = ActionBarModel(likes: 0, boosts: 0, zaps: 5, zap_total: 10000000, our_like: nil, our_boost: nil, our_zap: nil)
         
         VStack(spacing: 50) {
@@ -200,7 +200,11 @@ struct EventActionBar_Previews: PreviewProvider {
             EventActionBar(damus_state: ds, event: ev, bar: likedbar_ours)
             
             EventActionBar(damus_state: ds, event: ev, bar: maxed_bar)
+            
+            EventActionBar(damus_state: ds, event: ev, bar: extra_max_bar)
 
+            EventActionBar(damus_state: ds, event: ev, bar: mega_max_bar)
+            
             EventActionBar(damus_state: ds, event: ev, bar: zapbar, test_lnurl: "lnurl")
         }
         .padding(20)

@@ -107,6 +107,7 @@ struct ProfileView: View {
     @State var is_zoomed: Bool = false
     @State var show_share_sheet: Bool = false
     @State var action_sheet_presented: Bool = false
+    @State var filter_state : FilterState = .posts
     @State var yOffset: CGFloat = 0
     
     @Environment(\.dismiss) var dismiss
@@ -318,7 +319,7 @@ struct ProfileView: View {
                     .foregroundColor(.gray)
             } else {
                 let followerCount = followers.count!
-                Text("\(Text(String("\(followerCount)")).font(.subheadline.weight(.medium))) \(Text(String(format: NSLocalizedString("followers_count", comment: "Part of a larger sentence to describe how many people are following a user."), followerCount)).font(.subheadline).foregroundColor(.gray))", comment: "Sentence composed of 2 variables to describe how many people are following a user. In source English, the first variable is the number of followers, and the second variable is 'Follower' or 'Followers'.")
+                Text("\(Text(verbatim: "\(followerCount)").font(.subheadline.weight(.medium))) \(Text(String(format: NSLocalizedString("followers_count", comment: "Part of a larger sentence to describe how many people are following a user."), followerCount)).font(.subheadline).foregroundColor(.gray))", comment: "Sentence composed of 2 variables to describe how many people are following a user. In source English, the first variable is the number of followers, and the second variable is 'Follower' or 'Followers'.")
             }
         }
     }
@@ -336,15 +337,13 @@ struct ProfileView: View {
                 WebsiteLink(url: url)
             }
             
-            Divider()
-            
             HStack {
                 if let contact = profile.contacts {
                     let contacts = contact.referenced_pubkeys.map { $0.ref_id }
                     let following_model = FollowingModel(damus_state: damus_state, contacts: contacts)
                     NavigationLink(destination: FollowingView(damus_state: damus_state, following: following_model, whos: profile.pubkey)) {
                         HStack {
-                            Text("\(Text("\(profile.following)", comment: "Number of profiles a user is following.").font(.subheadline.weight(.medium))) \(Text("Following", comment: "Part of a larger sentence to describe how many profiles a user is following.").font(.subheadline).foregroundColor(.gray))", comment: "Sentence composed of 2 variables to describe how many profiles a user is following. In source English, the first variable is the number of profiles being followed, and the second variable is 'Following'.")
+                            Text("\(Text(verbatim: "\(profile.following)").font(.subheadline.weight(.medium))) \(Text("Following", comment: "Part of a larger sentence to describe how many profiles a user is following.").font(.subheadline).foregroundColor(.gray))", comment: "Sentence composed of 2 variables to describe how many profiles a user is following. In source English, the first variable is the number of profiles being followed, and the second variable is 'Following'.")
                         }
                     }
                     .buttonStyle(PlainButtonStyle())
@@ -367,7 +366,7 @@ struct ProfileView: View {
                 
                 if let relays = profile.relays {
                     // Only open relay config view if the user is logged in with private key and they are looking at their own profile.
-                    let relay_text = Text("\(Text("\(relays.keys.count)", comment: "Number of relay servers a user is connected.").font(.subheadline.weight(.medium))) \(Text(String(format: NSLocalizedString("relays_count", comment: "Part of a larger sentence to describe how many relay servers a user is connected."), relays.keys.count)).font(.subheadline).foregroundColor(.gray))", comment: "Sentence composed of 2 variables to describe how many relay servers a user is connected. In source English, the first variable is the number of relay servers, and the second variable is 'Relay' or 'Relays'.")
+                    let relay_text = Text("\(Text(verbatim: "\(relays.keys.count)").font(.subheadline.weight(.medium))) \(Text(String(format: NSLocalizedString("relays_count", comment: "Part of a larger sentence to describe how many relay servers a user is connected."), relays.keys.count)).font(.subheadline).foregroundColor(.gray))", comment: "Sentence composed of 2 variables to describe how many relay servers a user is connected. In source English, the first variable is the number of relay servers, and the second variable is 'Relay' or 'Relays'.")
                     if profile.pubkey == damus_state.pubkey && damus_state.is_privkey_user {
                         NavigationLink(destination: RelayConfigView(state: damus_state)) {
                             relay_text
@@ -386,7 +385,6 @@ struct ProfileView: View {
     }
         
     var body: some View {
-        
         ScrollView(.vertical) {
             VStack(spacing: 0) {
                 bannerSection
@@ -395,9 +393,22 @@ struct ProfileView: View {
                 VStack() {
                     aboutSection
                 
-                    Divider()
+                    VStack(spacing: 0) {
+                        CustomPicker(selection: $filter_state, content: {
+                            Text("Posts", comment: "Label for filter for seeing only your posts (instead of posts and replies).").tag(FilterState.posts)
+                            Text("Posts & Replies", comment: "Label for filter for seeing your posts and replies (instead of only your posts).").tag(FilterState.posts_and_replies)
+                        })
+                        Divider()
+                            .frame(height: 1)
+                    }
+                    .background(colorScheme == .dark ? Color.black : Color.white)
                     
-                    InnerTimelineView(events: $profile.events, damus: damus_state, show_friend_icon: false, filter: { _ in true })
+                    if filter_state == FilterState.posts {
+                        InnerTimelineView(events: $profile.events, damus: damus_state, show_friend_icon: false, filter: FilterState.posts.filter)
+                    }
+                    if filter_state == FilterState.posts_and_replies {
+                        InnerTimelineView(events: $profile.events, damus: damus_state, show_friend_icon: false, filter: FilterState.posts_and_replies.filter)
+                    }
                 }
                 .padding(.horizontal, Theme.safeAreaInsets?.left)
                 .zIndex(-yOffset > navbarHeight ? 0 : 1)
@@ -463,22 +474,30 @@ struct KeyView: View {
         colorScheme == .light ? Color("DamusBlack") : Color("DamusWhite")
     }
     
+    private func copyPubkey(_ pubkey: String) {
+        UIPasteboard.general.string = pubkey
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        withAnimation {
+            isCopied = true
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                withAnimation {
+                    isCopied = false
+                }
+            }
+        }
+    }
+    
     var body: some View {
         let bech32 = bech32_pubkey(pubkey) ?? pubkey
         
         HStack {
-            RoundedRectangle(cornerRadius: 24)
-                .frame(width: 275, height:22)
+            RoundedRectangle(cornerRadius: 11)
+                .frame(height: 22)
                 .foregroundColor(fillColor())
                 .overlay(
                     HStack {
                         Button {
-                            UIPasteboard.general.string = bech32
-                            UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                            isCopied = true
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                                isCopied = false
-                            }
+                            copyPubkey(bech32)
                         } label: {
                             Label(NSLocalizedString("Public Key", comment: "Label indicating that the text is a user's public account key."), systemImage: "key.fill")
                                 .font(.custom("key", size: 12.0))
@@ -490,23 +509,18 @@ struct KeyView: View {
                         Text(abbrev_pubkey(bech32, amount: 16))
                             .font(.footnote)
                             .foregroundColor(keyColor())
-                            .offset(x:-3) // Not sure why this is needed.
                     }
                 )
             if isCopied != true {
                 Button {
-                    UIPasteboard.general.string = bech32
-                    UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-                    isCopied = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                        isCopied = false
-                    }
+                    copyPubkey(bech32)
                 } label: {
                     Label {
                         Text("Public key", comment: "Label indicating that the text is a user's public account key.")
                     } icon: {
-                        Image("ic-copy")
+                        Image(systemName: "square.on.square.dashed")
                             .contentShape(Rectangle())
+                            .foregroundColor(.gray)
                             .frame(width: 20, height: 20)
                     }
                     .labelStyle(IconOnlyLabelStyle())
@@ -514,12 +528,13 @@ struct KeyView: View {
                 }
             } else {
                 HStack {
-                    Image("ic-tick")
+                    Image(systemName: "checkmark.circle")
                         .frame(width: 20, height: 20)
                     Text(NSLocalizedString("Copied", comment: "Label indicating that a user's key was copied."))
                         .font(.footnote)
-                        .foregroundColor(Color("DamusGreen"))
+                        .layoutPriority(1)
                 }
+                .foregroundColor(Color("DamusGreen"))
             }
         }
     }

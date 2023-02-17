@@ -34,7 +34,7 @@ struct InnerTimelineView: View {
         NavigationLink(destination: MaybeBuildThreadView, isActive: $navigating) {
             EmptyView()
         }
-        LazyVStack {
+        LazyVStack(spacing: 0) {
             if events.isEmpty {
                 EmptyTimelineView()
             } else {
@@ -44,11 +44,11 @@ struct InnerTimelineView: View {
                             nav_target = ev
                             navigating = true
                         }
+                        .padding(.top, 10)
                 }
             }
         }
         .padding(.horizontal)
-        .padding(.top,10)
     }
 }
 
@@ -77,7 +77,7 @@ struct TimelineView: View {
                 guard let event = events.filter(self.filter).first else {
                     return
                 }
-                scroll_to_event(scroller: scroller, id: event.id, delay: 0.0, animate: true)
+                scroll_to_event(scroller: scroller, id: event.id, delay: 0.0, animate: true, anchor: .top)
             }
         }
     }
