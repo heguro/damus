@@ -77,9 +77,9 @@
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
 			<key>one</key>
-			<string>&amp; %d autre</string>
+			<string> &amp; %d autre</string>
 			<key>other</key>
-			<string>&amp; %d autres</string>
+			<string> &amp; %d autres</string>
 			<key>zero</key>
 			<string></string>
 		</dict>
@@ -95,9 +95,9 @@
 			<key>NSStringFormatValueTypeKey</key>
 			<string>d</string>
 			<key>one</key>
-			<string>&amp; %d autre</string>
+			<string> &amp; %d autre</string>
 			<key>other</key>
-			<string>&amp; %d autres</string>
+			<string> &amp; %d autres</string>
 			<key>zero</key>
 			<string></string>
 		</dict>

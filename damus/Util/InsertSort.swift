@@ -38,6 +38,7 @@ func insert_uniq_by_pubkey(events: inout [NostrEvent], new_ev: NostrEvent, cmp: 
     return true
 }
 
+@discardableResult
 func insert_uniq_sorted_zap(zaps: inout [Zap], new_zap: Zap) -> Bool {
     var i: Int = 0
     
@@ -58,6 +59,14 @@ func insert_uniq_sorted_zap(zaps: inout [Zap], new_zap: Zap) -> Bool {
     return true
 }
 
+
+func insert_uniq_sorted_event_created(events: inout [NostrEvent], new_ev: NostrEvent) -> Bool {
+    return insert_uniq_sorted_event(events: &events, new_ev: new_ev) {
+        $0.created_at > $1.created_at
+    }
+}
+
+@discardableResult
 func insert_uniq_sorted_event(events: inout [NostrEvent], new_ev: NostrEvent, cmp: (NostrEvent, NostrEvent) -> Bool) -> Bool {
     var i: Int = 0
     

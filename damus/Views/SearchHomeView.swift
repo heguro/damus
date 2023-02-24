@@ -40,7 +40,12 @@ struct SearchHomeView: View {
     }
     
     var GlobalContent: some View {
-        Spacer()
+        return TimelineView(events: model.events, loading: $model.loading, damus: damus_state, show_friend_icon: true, filter: { _ in true })
+            .refreshable {
+                // Fetch new information by unsubscribing and resubscribing to the relay
+                model.unsubscribe()
+                model.subscribe()
+            }
     }
     
     var SearchContent: some View {
@@ -85,8 +90,8 @@ struct SearchHomeView: View {
             self.model.filter_muted()
         }
         .onAppear {
-            if model.events.isEmpty {
-                //model.subscribe()
+            if model.events.events.isEmpty {
+                model.subscribe()
             }
         }
         .onDisappear {
