@@ -96,12 +96,12 @@ struct PostView: View {
                     if !showPrivateKeyWarning {
                         self.send_post()
                     }
-                    .font(.system(size: 14, weight: .bold))
-                    .frame(width: 80, height: 30)
-                    .foregroundColor(.white)
-                    .background(LINEAR_GRADIENT)
-                    .clipShape(Capsule())
                 }
+                .font(.system(size: 14, weight: .bold))
+                .frame(width: 80, height: 30)
+                .foregroundColor(.white)
+                .background(LINEAR_GRADIENT)
+                .clipShape(Capsule())
                 .disabled(is_post_empty)
             }
             .frame(height: 30)
